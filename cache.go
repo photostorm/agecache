@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // Stats hold cache statistics.
@@ -207,15 +207,11 @@ func (cache *Cache) set(key, value interface{}) bool {
 	return evict
 }
 
-var (
-	ErrNotFound = errors.New("not found")
-)
-
 // Get returns the value stored at `key`. Error is set to ErrNotFound if
 // key not found or expired. If OnMiss is set, value will be fetched, set and returned.
 // If fetch failed, error will be returned. The OnExpiration callback is invoked if the value
 // had expired on access.
-func (cache *Cache) Get(key interface{}) (interface{}, error) {
+func (cache *Cache) Get(key interface{}) (interface{}, bool) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 
@@ -226,7 +222,7 @@ func (cache *Cache) Get(key interface{}) (interface{}, error) {
 		if cache.maxAge == 0 || time.Since(entry.timestamp) <= cache.maxAge {
 			cache.evictionList.MoveToFront(element)
 			cache.hits++
-			return entry.value, nil
+			return entry.value, true
 		}
 
 		// Entry expired
@@ -240,13 +236,13 @@ func (cache *Cache) Get(key interface{}) (interface{}, error) {
 	if cache.onMiss != nil {
 		value, err := cache.onMiss(key)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to fetch values for key %v", key)
+			return nil, false
 		}
 		cache.set(key, value)
-		return value, nil
+		return value, true
 	}
 
-	return nil, ErrNotFound
+	return nil, false
 }
 
 // Has returns whether or not the `key` is in the cache without updating

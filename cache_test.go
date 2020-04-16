@@ -39,12 +39,12 @@ func TestBasicSetGet(t *testing.T) {
 	cache.Set("foo", 1)
 	cache.Set("bar", 2)
 
-	val, err := cache.Get("foo")
-	assert.Nil(t, err)
+	val, ok := cache.Get("foo")
+	assert.True(t, ok)
 	assert.Equal(t, 1, val)
 
-	val, err = cache.Get("bar")
-	assert.Nil(t, err)
+	val, ok = cache.Get("bar")
+	assert.True(t, ok)
 	assert.Equal(t, 2, val)
 }
 
@@ -52,10 +52,10 @@ func TestBasicSetOverwrite(t *testing.T) {
 	cache := New(Config{Capacity: 2})
 	cache.Set("foo", 1)
 	evict := cache.Set("foo", 2)
-	val, err := cache.Get("foo")
+	val, ok := cache.Get("foo")
 
 	assert.False(t, evict)
-	assert.Nil(t, err)
+	assert.True(t, ok)
 	assert.Equal(t, 2, val)
 }
 
@@ -73,10 +73,10 @@ func TestEviction(t *testing.T) {
 	cache.Set("foo", 1)
 	cache.Set("bar", 2)
 	evict := cache.Set("baz", 3)
-	val, err := cache.Get("foo")
+	val, ok := cache.Get("foo")
 
 	assert.True(t, evict)
-	assert.Equal(t, ErrNotFound, err)
+	assert.False(t, ok)
 	assert.Nil(t, val)
 	assert.Equal(t, "foo", k)
 	assert.Equal(t, 1, v)
@@ -101,8 +101,8 @@ func TestExpiration(t *testing.T) {
 	cache.Set("foo", 1)
 	<-time.After(time.Millisecond * 2)
 
-	val, err := cache.Get("foo")
-	assert.Equal(t, ErrNotFound, err)
+	val, ok := cache.Get("foo")
+	assert.False(t, ok)
 	assert.Nil(t, val)
 	assert.Equal(t, "foo", k)
 	assert.Equal(t, 1, v)
@@ -203,8 +203,8 @@ func TestRemove(t *testing.T) {
 	assert.True(t, ok)
 	assert.False(t, eviction)
 
-	val, err := cache.Get("foo")
-	assert.Equal(t, ErrNotFound, err)
+	val, ok := cache.Get("foo")
+	assert.False(t, ok)
 	assert.Nil(t, val)
 }
 
@@ -224,8 +224,8 @@ func TestEvictOldest(t *testing.T) {
 	assert.True(t, ok)
 	assert.True(t, eviction)
 
-	val, err := cache.Get("foo")
-	assert.Equal(t, ErrNotFound, err)
+	val, ok := cache.Get("foo")
+	assert.False(t, ok)
 	assert.Nil(t, val)
 
 	eviction = false
@@ -254,8 +254,8 @@ func TestClear(t *testing.T) {
 	cache.Clear()
 
 	for i := 0; i <= 9; i++ {
-		_, err := cache.Get(i)
-		assert.Equal(t, ErrNotFound, err)
+		_, ok := cache.Get(i)
+		assert.False(t, ok)
 	}
 	assert.Equal(t, 0, cache.Len())
 }
