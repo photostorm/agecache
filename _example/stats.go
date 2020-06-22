@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/segmentio/agecache"
+	"github.com/photostorm/agecache"
 )
 
 func main() {
