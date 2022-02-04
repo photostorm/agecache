@@ -61,6 +61,20 @@ const (
 	ActiveExpiration
 )
 
+// ExpireAfterType enumerates the expire after types.
+type ExpireAfterType int
+
+const (
+	// ExpireAfterWrite specifies that each entry should be automatically removed from the cache
+	// once a fixed duration has elapsed after the entry's creation, or the most recent replacement of its value.
+	ExpireAfterWrite ExpireAfterType = iota
+
+	// ExpireAfterAccess specifies that each entry should be automatically removed from the cache
+	// once a fixed duration has elapsed after the entry's creation, the most recent replacement of its value,
+	// or its last access.
+	ExpireAfterAccess
+)
+
 // Config configures the cache.
 type Config struct {
 	// Maximum number of items in the cache
@@ -74,6 +88,8 @@ type Config struct {
 	MinAge time.Duration
 	// Type of key expiration: Passive or Active
 	ExpirationType ExpirationType
+	// Type of the expiration time: AfterWrite or AfterAccess
+	ExpireAfterType ExpireAfterType
 	// For active expiration, how often to iterate over the keyspace. Defaults
 	// to the MaxAge
 	ExpirationInterval time.Duration
@@ -99,6 +115,7 @@ type Cache struct {
 	minAge             time.Duration
 	maxAge             time.Duration
 	expirationType     ExpirationType
+	expireAfterType    ExpireAfterType
 	expirationInterval time.Duration
 	onEviction         func(key, value interface{})
 	onExpiration       func(key, value interface{})
@@ -148,6 +165,12 @@ func New(config Config) *Cache {
 		interval = config.MaxAge
 	}
 
+	expireAfterType := config.ExpireAfterType
+	if expireAfterType <= 0 {
+		// default to ExpireAfterWrite
+		expireAfterType = ExpireAfterWrite
+	}
+
 	seed := rand.NewSource(time.Now().UnixNano())
 
 	cache := &Cache{
@@ -155,6 +178,7 @@ func New(config Config) *Cache {
 		maxAge:             config.MaxAge,
 		minAge:             minAge,
 		expirationType:     config.ExpirationType,
+		expireAfterType:    expireAfterType,
 		expirationInterval: interval,
 		onEviction:         config.OnEviction,
 		onExpiration:       config.OnExpiration,
@@ -219,6 +243,9 @@ func (cache *Cache) Get(key interface{}) (interface{}, bool) {
 
 	if element, ok := cache.items[key]; ok {
 		entry := element.Value.(*cacheEntry)
+		if cache.expireAfterType == ExpireAfterAccess {
+			entry.timestamp = cache.getTimestamp()
+		}
 		if cache.maxAge == 0 || time.Since(entry.timestamp) <= cache.maxAge {
 			cache.evictionList.MoveToFront(element)
 			cache.hits++
